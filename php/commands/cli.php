@@ -133,7 +133,7 @@ class CLI_Command extends WP_CLI_Command {
 
 			if ( $latest_major[0] !== $current_major[0]
 				|| $latest_major[1] !== $current_major[1] ) {
-				WP_CLI::line( $latest.'s' );
+				WP_CLI::line( $latest );
 			}
 
 		} else {

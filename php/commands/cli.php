@@ -28,31 +28,6 @@ class CLI_Command extends WP_CLI_Command {
 		return $dump;
 	}
 
-	private static function _request( $method, $url, $headers = array(), $options = array() ) {
-		// cURL can't read Phar archives
-		if ( 0 === strpos( WP_CLI_ROOT, 'phar://' ) ) {
-			$options['verify'] = sys_get_temp_dir() . '/wp-cli-cacert.pem';
-
-			copy(
-				WP_CLI_ROOT . '/vendor/rmccue/requests/library/Requests/Transport/cacert.pem',
-				$options['verify']
-			);
-		}
-
-		try {
-			return Requests::get( $url, $headers, $options );
-		} catch( Requests_Exception $ex ) {
-			// Handle SSL certificate issues gracefully
-			WP_CLI::warning( $ex->getMessage() );
-			$options['verify'] = false;
-			try {
-				return Requests::get( $url, $headers, $options );
-			} catch( Requests_Exception $ex ) {
-				WP_CLI::error( $ex->getMessage() );
-			}
-		}
-	}
-
 	/**
 	 * Print WP-CLI version.
 	 */
@@ -95,11 +70,13 @@ class CLI_Command extends WP_CLI_Command {
 	}
 
 	/**
-	 * Get latest version from GitHub API.
+	 * Check for update via Github API. Returns latest version if there's an update, or empty if no update available.
 	 *
 	 * ## OPTIONS
 	 *
 	 * [--major]
+	 * : Compare only the first two parts of the version number.
+	 *
 	 * @subcommand check-update
 	 */
 	function check_update( $_, $assoc_args ) {
@@ -112,7 +89,7 @@ class CLI_Command extends WP_CLI_Command {
 		$headers = array(
 			'Accept' => 'application/json'
 		);
-		$response = self::_request( 'GET', $url, $headers, $options );
+		$response = Utils\request( 'GET', $url, $headers, $options );
 
 		if ( ! $response->success || 200 !== $response->status_code ) {
 			WP_CLI::error( "Failed to get latest version." );
@@ -130,7 +107,6 @@ class CLI_Command extends WP_CLI_Command {
 		if ( isset( $assoc_args['major'] ) ) {
 			$latest_major = explode( '.', $latest );
 			$current_major = explode( '.', WP_CLI_VERSION );
-
 			if ( $latest_major[0] !== $current_major[0]
 				|| $latest_major[1] !== $current_major[1] ) {
 				WP_CLI::line( $latest );

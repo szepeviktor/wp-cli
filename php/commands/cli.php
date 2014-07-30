@@ -28,6 +28,31 @@ class CLI_Command extends WP_CLI_Command {
 		return $dump;
 	}
 
+	private static function _request( $method, $url, $headers = array(), $options = array() ) {
+		// cURL can't read Phar archives
+		if ( 0 === strpos( WP_CLI_ROOT, 'phar://' ) ) {
+			$options['verify'] = sys_get_temp_dir() . '/wp-cli-cacert.pem';
+
+			copy(
+				WP_CLI_ROOT . '/vendor/rmccue/requests/library/Requests/Transport/cacert.pem',
+				$options['verify']
+			);
+		}
+
+		try {
+			return Requests::get( $url, $headers, $options );
+		} catch( Requests_Exception $ex ) {
+			// Handle SSL certificate issues gracefully
+			WP_CLI::warning( $ex->getMessage() );
+			$options['verify'] = false;
+			try {
+				return Requests::get( $url, $headers, $options );
+			} catch( Requests_Exception $ex ) {
+				WP_CLI::error( $ex->getMessage() );
+			}
+		}
+	}
+
 	/**
 	 * Print WP-CLI version.
 	 */
@@ -66,6 +91,53 @@ class CLI_Command extends WP_CLI_Command {
 			WP_CLI::line( "WP-CLI global config:\t" . $runner->global_config_path );
 			WP_CLI::line( "WP-CLI project config:\t" . $runner->project_config_path );
 			WP_CLI::line( "WP-CLI version:\t" . WP_CLI_VERSION );
+		}
+	}
+
+	/**
+	 * Get latest version from GitHub API.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--major]
+	 * @subcommand check-update
+	 */
+	function check_update( $_, $assoc_args ) {
+		$url = 'https://api.github.com/repos/wp-cli/wp-cli/releases';
+
+		$options = array(
+			'timeout' => 30
+		);
+
+		$headers = array(
+			'Accept' => 'application/json'
+		);
+		$response = self::_request( 'GET', $url, $headers, $options );
+
+		if ( ! $response->success || 200 !== $response->status_code ) {
+			WP_CLI::error( "Failed to get latest version." );
+		}
+
+		$release_data = json_decode( $response->body );
+
+		$latest = $release_data[0]->tag_name;
+
+		// get rid of leading "v"
+		if ( 'v' === substr( $latest, 0, 1 ) ) {
+			$latest = ltrim( $latest, 'v' );
+		}
+
+		if ( isset( $assoc_args['major'] ) ) {
+			$latest_major = explode( '.', $latest );
+			$current_major = explode( '.', WP_CLI_VERSION );
+
+			if ( $latest_major[0] !== $current_major[0]
+				|| $latest_major[1] !== $current_major[1] ) {
+				WP_CLI::line( $latest.'s' );
+			}
+
+		} else {
+			WP_CLI::line( $latest );
 		}
 	}
 

@@ -75,7 +75,7 @@ class Core_Command extends WP_CLI_Command {
 				'filename' => $temp
 			);
 
-			request( 'GET', $download_url, $headers, $options );
+			Utils\request( 'GET', $download_url, $headers, $options );
 			self::_extract( $temp, ABSPATH );
 			$cache->import( $cache_key, $temp );
 			unlink($temp);
@@ -136,7 +136,7 @@ class Core_Command extends WP_CLI_Command {
 
 	private static function _read( $url ) {
 		$headers = array('Accept' => 'application/json');
-		return request( 'GET', $url, $headers )->body;
+		return Utils\request( 'GET', $url, $headers )->body;
 	}
 
 	private function get_download_offer( $locale ) {
@@ -655,11 +655,11 @@ define('BLOG_ID_CURRENT_SITE', 1);
 		$headers = array(
 			'Accept' => 'application/json'
 		);
-		$response = request( 'GET', $url, $headers, $options );
+		$response = Utils\request( 'GET', $url, $headers, $options );
 
 		if ( $ssl && ! $response->success ) {
 			trigger_error( __( 'An unexpected error occurred. Something may be wrong with WordPress.org or this server&#8217;s configuration. If you continue to have problems, please try the <a href="https://wordpress.org/support/">support forums</a>.' ) . ' ' . __( '(WordPress could not establish a secure connection to WordPress.org. Please contact your server administrator.)' ), headers_sent() || WP_DEBUG ? E_USER_WARNING : E_USER_NOTICE );
-			$response = request( 'GET', $http_url, $headers, $options );
+			$response = Utils\request( 'GET', $http_url, $headers, $options );
 		}
 
 		if ( ! $response->success || 200 != $response->status_code )
